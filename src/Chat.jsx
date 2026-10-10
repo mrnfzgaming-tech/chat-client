@@ -14,6 +14,9 @@ export default function Chat({ me, token, onLogout, onOpenAdmin }) {
   const [friendTyping, setFriendTyping] = useState(false);
   const [addFriendInput, setAddFriendInput] = useState('');
   const [addFriendMsg, setAddFriendMsg] = useState('');
+  const [showExitWarning, setShowExitWarning] = useState(false);
+const exitWarningTimer = useRef(null);
+const backPressedRef = useRef(false);
 
   const socketRef = useRef(null);
   const scrollRef = useRef(null);
@@ -161,6 +164,53 @@ export default function Chat({ me, token, onLogout, onOpenAdmin }) {
       socketRef.current.emit('typing', { to: activeFriend, isTyping: false });
     }, 1500);
   }
+  // ============ ANDROID BACK BUTTON HANDLER ============
+useEffect(() => {
+  // Push a fake history state so back button doesn't exit immediately
+  window.history.pushState({ app: true }, '');
+
+  function handlePopState() {
+    // If chat is open → close chat (go to sidebar)
+    if (activeFriendRef.current) {
+      setActiveFriend(null);
+      localStorage.removeItem('active_friend');
+      setMessages([]);
+      setFriendTyping(false);
+
+      // Push state again to stay in app
+      window.history.pushState({ app: true }, '');
+      return;
+    }
+
+    // If already on sidebar → show exit warning
+    if (!backPressedRef.current) {
+      // First press
+      backPressedRef.current = true;
+      setShowExitWarning(true);
+
+      // Push state again to prevent exit
+      window.history.pushState({ app: true }, '');
+
+      // Reset after 2 seconds
+      if (exitWarningTimer.current) clearTimeout(exitWarningTimer.current);
+      exitWarningTimer.current = setTimeout(() => {
+        backPressedRef.current = false;
+        setShowExitWarning(false);
+      }, 2000);
+    } else {
+      // Second press within 2 seconds — allow exit
+      // Don't push state, let browser go back
+      window.history.back();
+    }
+  }
+
+  window.addEventListener('popstate', handlePopState);
+
+  return () => {
+    window.removeEventListener('popstate', handlePopState);
+    if (exitWarningTimer.current) clearTimeout(exitWarningTimer.current);
+  };
+}, []);
 
   function formatTime(ts) {
     const d = new Date(ts);
@@ -169,7 +219,12 @@ export default function Chat({ me, token, onLogout, onOpenAdmin }) {
 
   // ============ MAIN RENDER ============
   return (
-    <div style={s.app}>
+    <div style={s.app}> {/* Exit Warning Toast */}
+{showExitWarning && (
+  <div style={s.exitWarning}>
+    Press back again to exit
+  </div>
+)}
       {!activeFriend ? (
         // ====== SIDEBAR / CHAT LIST (full screen) ======
         <div style={s.sidebar}>
@@ -347,6 +402,23 @@ const s = {
     fontFamily: 'system-ui, sans-serif',
     background: '#1e1e2f',
   },
+
+  exitWarning: {
+  position: 'fixed',
+  bottom: 80,
+  left: '50%',
+  transform: 'translateX(-50%)',
+  background: 'rgba(30, 30, 47, 0.95)',
+  color: 'white',
+  padding: '12px 24px',
+  borderRadius: 24,
+  fontSize: 14,
+  fontWeight: 500,
+  zIndex: 9999,
+  boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+  animation: 'fadeIn 0.2s ease',
+  whiteSpace: 'nowrap',
+},
 
   // ====== SIDEBAR (Full Screen) ======
   sidebar: {
