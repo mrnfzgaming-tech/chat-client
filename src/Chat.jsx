@@ -119,6 +119,25 @@ const isPulling = useRef(false);
     setMessages([]);
     setFriendTyping(false);
   }
+  async function handleManualRefresh() {
+  setRefreshing(true);
+  try {
+    const list = await getFriends(token);
+    setFriends(list);
+
+    if (activeFriend) {
+      const history = await getMessages(token, activeFriend);
+      const mapped = history.map((m) => ({
+        ...m,
+        mine: m.from === me.username,
+      }));
+      setMessages(mapped);
+    }
+  } catch (err) {
+    console.error('Refresh failed:', err);
+  }
+  setTimeout(() => setRefreshing(false), 300);
+}
 
   async function handleAddFriend() {
     const name = addFriendInput.trim();
@@ -310,6 +329,24 @@ useEffect(() => {
     if (exitWarningTimer.current) clearTimeout(exitWarningTimer.current);
   };
 }, []);
+function RefreshIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="23 4 23 10 17 10" />
+      <polyline points="1 20 1 14 7 14" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+    </svg>
+  );
+}
 
   function formatTime(ts) {
     const d = new Date(ts);
@@ -392,23 +429,32 @@ useEffect(() => {
   )}
 </div>
           <div style={s.sidebarTop}>
-            <div style={s.userInfo}>
-              <strong style={s.username}>{me.username}</strong>
-              <div
-                style={{
-                  fontSize: 12,
-                  color: connected ? '#4ade80' : '#f87171',
-                }}
-              >
-                {connected ? 'Online' : 'Offline'}
-              </div>
-            </div>
-            {onOpenAdmin && (
-              <button style={s.adminBtn} onClick={onOpenAdmin}>
-                Admin
-              </button>
-            )}
-          </div>
+  <div style={s.userInfo}>
+    <strong style={s.username}>{me.username}</strong>
+    <div
+      style={{
+        fontSize: 12,
+        color: connected ? '#4ade80' : '#f87171',
+      }}
+    >
+      {connected ? 'Online' : 'Offline'}
+    </div>
+  </div>
+  <div style={s.sidebarTopRight}>
+    {onOpenAdmin && (
+      <button style={s.adminBtnCenter} onClick={onOpenAdmin}>
+        Admin
+      </button>
+    )}
+    <button
+      style={s.refreshBtn}
+      onClick={handleManualRefresh}
+      title="Refresh"
+    >
+      <RefreshIcon />
+    </button>
+  </div>
+</div>
 
           {/* Add friend */}
           <div style={s.addBox}>
@@ -465,46 +511,26 @@ useEffect(() => {
 >
           {/* Header with back button */}
           <div style={s.header}>
-            {/* Pull to refresh indicator */}
-<div
-  style={{
-    height: pullDistance,
-    overflow: 'hidden',
-    transition: refreshing ? 'height 0.2s' : 'none',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: '#f5f5f7',
-  }}
->
-  {pullDistance > 0 && (
-    <div
-      style={{
-        color: '#667eea',
-        fontSize: 20,
-        transition: 'transform 0.2s',
-        transform: refreshing
-          ? 'rotate(360deg)'
-          : `rotate(${pullDistance * 3}deg)`,
-      }}
-    >
-      🔄
+  <button style={s.backBtn} onClick={closeChat}>
+    ←
+  </button>
+  <div style={s.headerInfo}>
+    <div style={s.avatar}>{activeFriend[0].toUpperCase()}</div>
+    <div>
+      <strong>{activeFriend}</strong>
+      {friendTyping && (
+        <div style={s.typingText}>typing...</div>
+      )}
     </div>
-  )}
+  </div>
+  <button
+    style={s.refreshBtn}
+    onClick={handleManualRefresh}
+    title="Refresh"
+  >
+    <RefreshIcon />
+  </button>
 </div>
-            <button style={s.backBtn} onClick={closeChat}>
-              ←
-            </button>
-            <div style={s.headerInfo}>
-              <div style={s.avatar}>{activeFriend[0].toUpperCase()}</div>
-              <div>
-                <strong>{activeFriend}</strong>
-                {friendTyping && (
-                  <div style={s.typingText}>typing...</div>
-                )}
-              </div>
-            </div>
-          </div>
 
           {/* Messages */}
           <div ref={scrollRef} style={s.messages}>
@@ -727,6 +753,37 @@ modalConfirmBtn: {
     cursor: 'pointer',
     fontSize: 13,
   },
+
+  sidebarTopRight: {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+},
+adminBtnCenter: {
+  background: 'transparent',
+  color: '#4ade80',
+  border: '1px solid #4ade80',
+  padding: '6px 12px',
+  borderRadius: 6,
+  cursor: 'pointer',
+  fontSize: 13,
+},
+refreshBtn: {
+  background: '#667eea',
+  color: 'white',
+  border: 'none',
+  cursor: 'pointer',
+  padding: 8,
+  borderRadius: 8,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 36,
+  height: 36,
+  flexShrink: 0,
+  boxShadow: '0 2px 6px rgba(102,126,234,0.4)',
+  transition: 'all 0.15s',
+},
 
   // ====== ADD FRIEND ======
   addBox: {
