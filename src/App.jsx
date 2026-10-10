@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
 import Login from './Login';
 import Chat from './Chat';
+import Admin from './Admin';
 import { API_URL } from './config';
 
 const SESSION_KEY = 'chat_session';
+const ADMIN_USERNAME = 'MrNFZ';  // <-- apnar admin username din
 
 export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showAdmin, setShowAdmin] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem(SESSION_KEY);
@@ -55,6 +58,7 @@ export default function App() {
   function handleLogout() {
     localStorage.removeItem(SESSION_KEY);
     setSession(null);
+    setShowAdmin(false);
   }
 
   if (loading) {
@@ -68,7 +72,27 @@ export default function App() {
     );
   }
 
-  return session
-    ? <Chat {...session} onLogout={handleLogout} />
-    : <Login onLogin={handleLogin} />;
+  if (!session) {
+    return <Login onLogin={handleLogin} />;
+  }
+
+  const isAdmin = session.me.username === ADMIN_USERNAME;
+
+  if (showAdmin && isAdmin) {
+    return (
+      <Admin
+        me={session.me}
+        token={session.token}
+        onBack={() => setShowAdmin(false)}
+      />
+    );
+  }
+
+  return (
+    <Chat
+      {...session}
+      onLogout={handleLogout}
+      onOpenAdmin={isAdmin ? () => setShowAdmin(true) : null}
+    />
+  );
 }

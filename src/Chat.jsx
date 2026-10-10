@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 import { API_URL } from './config';
 import { addFriend, getFriends, markRead, getMessages } from './api';
 
-export default function Chat({ me, token, onLogout }) {
+export default function Chat({ me, token, onLogout, onOpenAdmin }) {
   const [friends, setFriends] = useState([]);
   const [activeFriend, setActiveFriend] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -178,6 +178,9 @@ export default function Chat({ me, token, onLogout }) {
                 {connected ? 'Online' : 'Offline'}
               </div>
             </div>
+            {onOpenAdmin && (
+  <button style={s.adminBtn} onClick={onOpenAdmin}>Admin</button>
+)}
             <button style={s.logout} onClick={onLogout}>Log out</button>
           </div>
 
@@ -354,6 +357,16 @@ const s = {
     cursor: 'pointer',
     fontSize: 12,
   },
+adminBtn: {
+  background: 'transparent',
+  color: '#4ade80',
+  border: '1px solid #4ade80',
+  padding: '4px 10px',
+  borderRadius: 6,
+  cursor: 'pointer',
+  fontSize: 12,
+  marginRight: 6,
+},
   addBox: { display: 'flex', gap: 6 },
   friendInput: {
     flex: 1,
