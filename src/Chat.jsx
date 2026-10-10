@@ -14,6 +14,10 @@ export default function Chat({ me, token, onLogout, onOpenAdmin }) {
   const [friendTyping, setFriendTyping] = useState(false);
   const [addFriendInput, setAddFriendInput] = useState('');
   const [addFriendMsg, setAddFriendMsg] = useState('');
+  const [pullDistance, setPullDistance] = useState(0);
+const [refreshing, setRefreshing] = useState(false);
+const touchStartY = useRef(0);
+const isPulling = useRef(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 const exitWarningTimer = useRef(null);
@@ -130,6 +134,61 @@ const backPressedRef = useRef(false);
     }
     setTimeout(() => setAddFriendMsg(''), 3000);
   }
+// ============ PULL TO REFRESH ============
+function handleTouchStart(e) {
+  if (scrollRef.current && scrollRef.current.scrollTop > 0) {
+    isPulling.current = false;
+    return;
+  }
+  touchStartY.current = e.touches[0].clientY;
+  isPulling.current = true;
+}
+
+function handleTouchMove(e) {
+  if (!isPulling.current) return;
+
+  const deltaY = e.touches[0].clientY - touchStartY.current;
+
+  if (deltaY > 0 && !refreshing) {
+    const distance = Math.min(deltaY * 0.5, 100);
+    setPullDistance(distance);
+  } else {
+    setPullDistance(0);
+  }
+}
+
+async function handleTouchEnd() {
+  if (!isPulling.current) return;
+  isPulling.current = false;
+
+  if (pullDistance > 60) {
+    setRefreshing(true);
+    setPullDistance(60);
+
+    try {
+      const list = await getFriends(token);
+      setFriends(list);
+
+      if (activeFriend) {
+        const history = await getMessages(token, activeFriend);
+        const mapped = history.map((m) => ({
+          ...m,
+          mine: m.from === me.username,
+        }));
+        setMessages(mapped);
+      }
+    } catch (err) {
+      console.error('Refresh failed:', err);
+    }
+
+    setTimeout(() => {
+      setRefreshing(false);
+      setPullDistance(0);
+    }, 500);
+  } else {
+    setPullDistance(0);
+  }
+}
 
   function send() {
     if (!input.trim() || !activeFriend) return;
@@ -256,8 +315,40 @@ useEffect(() => {
 )}
       {!activeFriend ? (
         // ====== SIDEBAR / CHAT LIST (full screen) ======
-        <div style={s.sidebar}>
+        <div
+  style={s.sidebar}
+  onTouchStart={handleTouchStart}
+  onTouchMove={handleTouchMove}
+  onTouchEnd={handleTouchEnd}
+>
           {/* Header */}
+          {/* Pull to refresh indicator */}
+<div
+  style={{
+    height: pullDistance,
+    overflow: 'hidden',
+    transition: refreshing ? 'height 0.2s' : 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: '#1e1e2f',
+  }}
+>
+  {pullDistance > 0 && (
+    <div
+      style={{
+        color: '#667eea',
+        fontSize: 20,
+        transition: 'transform 0.2s',
+        transform: refreshing
+          ? 'rotate(360deg)'
+          : `rotate(${pullDistance * 3}deg)`,
+      }}
+    >
+      🔄
+    </div>
+  )}
+</div>
           <div style={s.sidebarTop}>
             <div style={s.userInfo}>
               <strong style={s.username}>{me.username}</strong>
@@ -324,9 +415,41 @@ useEffect(() => {
         </div>
       ) : (
         // ====== CHAT (full screen) ======
-        <div style={s.chat}>
+        <div
+  style={s.chat}
+  onTouchStart={handleTouchStart}
+  onTouchMove={handleTouchMove}
+  onTouchEnd={handleTouchEnd}
+>
           {/* Header with back button */}
           <div style={s.header}>
+            {/* Pull to refresh indicator */}
+<div
+  style={{
+    height: pullDistance,
+    overflow: 'hidden',
+    transition: refreshing ? 'height 0.2s' : 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: '#f5f5f7',
+  }}
+>
+  {pullDistance > 0 && (
+    <div
+      style={{
+        color: '#667eea',
+        fontSize: 20,
+        transition: 'transform 0.2s',
+        transform: refreshing
+          ? 'rotate(360deg)'
+          : `rotate(${pullDistance * 3}deg)`,
+      }}
+    >
+      🔄
+    </div>
+  )}
+</div>
             <button style={s.backBtn} onClick={closeChat}>
               ←
             </button>

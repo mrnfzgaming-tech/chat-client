@@ -11,6 +11,7 @@ body,
   width: 100%;
   overflow: hidden;
   overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -18,28 +19,17 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Prevent iOS auto-zoom on input focus */
 input,
 textarea,
 select {
   font-size: 16px;
 }
 
-/* Hide scrollbar but keep functionality */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(10px);
   }
   to {
     opacity: 1;
-    transform: translateX(-50%) translateY(0);
   }
-}
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }
