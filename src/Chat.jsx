@@ -136,7 +136,7 @@ const isPulling = useRef(false);
   } catch (err) {
     console.error('Refresh failed:', err);
   }
-  setTimeout(() => setRefreshing(false), 300);
+  setTimeout(() => setRefreshing(false), 800);
 }
 
   async function handleAddFriend() {
@@ -329,7 +329,7 @@ useEffect(() => {
     if (exitWarningTimer.current) clearTimeout(exitWarningTimer.current);
   };
 }, []);
-function RefreshIcon() {
+function RefreshIcon({ spinning }) {
   return (
     <svg
       width="20"
@@ -340,6 +340,10 @@ function RefreshIcon() {
       strokeWidth="2.2"
       strokeLinecap="round"
       strokeLinejoin="round"
+      style={{
+        animation: spinning ? 'spin 0.8s linear infinite' : 'none',
+        transition: 'transform 0.3s',
+      }}
     >
       <polyline points="23 4 23 10 17 10" />
       <polyline points="1 20 1 14 7 14" />
@@ -451,7 +455,7 @@ function RefreshIcon() {
       onClick={handleManualRefresh}
       title="Refresh"
     >
-      <RefreshIcon />
+      <RefreshIcon spinning={refreshing} />
     </button>
   </div>
 </div>
@@ -528,7 +532,7 @@ function RefreshIcon() {
     onClick={handleManualRefresh}
     title="Refresh"
   >
-    <RefreshIcon />
+    <RefreshIcon spinning={refreshing} />
   </button>
 </div>
 
