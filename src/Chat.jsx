@@ -16,12 +16,14 @@ export default function Chat({ me, token, onLogout, onOpenAdmin }) {
   const [addFriendMsg, setAddFriendMsg] = useState('');
   const [pullDistance, setPullDistance] = useState(0);
 const [refreshing, setRefreshing] = useState(false);
-const touchStartY = useRef(0);
-const isPulling = useRef(false);
-  const [showExitWarning, setShowExitWarning] = useState(false);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+const [showExitWarning, setShowExitWarning] = useState(false);
 const exitWarningTimer = useRef(null);
 const backPressedRef = useRef(false);
+
+const touchStartY = useRef(0);
+const isPulling = useRef(false);
+
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const socketRef = useRef(null);
   const scrollRef = useRef(null);
@@ -272,6 +274,43 @@ useEffect(() => {
   };
 }, []);
 
+// ============ ANDROID BACK BUTTON HANDLER ============
+useEffect(() => {
+  window.history.pushState({ app: true }, '');
+
+  function handlePopState() {
+    if (activeFriendRef.current) {
+      setActiveFriend(null);
+      localStorage.removeItem('active_friend');
+      setMessages([]);
+      setFriendTyping(false);
+      window.history.pushState({ app: true }, '');
+      return;
+    }
+
+    if (!backPressedRef.current) {
+      backPressedRef.current = true;
+      setShowExitWarning(true);
+      window.history.pushState({ app: true }, '');
+
+      if (exitWarningTimer.current) clearTimeout(exitWarningTimer.current);
+      exitWarningTimer.current = setTimeout(() => {
+        backPressedRef.current = false;
+        setShowExitWarning(false);
+      }, 2000);
+    } else {
+      window.history.back();
+    }
+  }
+
+  window.addEventListener('popstate', handlePopState);
+
+  return () => {
+    window.removeEventListener('popstate', handlePopState);
+    if (exitWarningTimer.current) clearTimeout(exitWarningTimer.current);
+  };
+}, []);
+
   function formatTime(ts) {
     const d = new Date(ts);
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -279,7 +318,10 @@ useEffect(() => {
 
   // ============ MAIN RENDER ============
   return (
-    <div style={s.app}> {/* Exit Warning Toast */}
+    <div style={s.app}> 
+    {showExitWarning && (
+  <div style={s.exitWarning}>Press back again to exit</div>
+)}{/* Exit Warning Toast */}
     {/* Logout Confirmation Dialog */}
 {showLogoutConfirm && (
   <div style={s.modalOverlay}>
@@ -557,6 +599,22 @@ const s = {
     fontFamily: 'system-ui, sans-serif',
     background: '#1e1e2f',
   },
+  exitWarning: {
+  position: 'fixed',
+  bottom: 80,
+  left: '50%',
+  transform: 'translateX(-50%)',
+  background: 'rgba(30, 30, 47, 0.95)',
+  color: 'white',
+  padding: '12px 24px',
+  borderRadius: 24,
+  fontSize: 14,
+  fontWeight: 500,
+  zIndex: 9999,
+  boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+  animation: 'fadeIn 0.2s ease',
+  whiteSpace: 'nowrap',
+},
 
   exitWarning: {
   position: 'fixed',
