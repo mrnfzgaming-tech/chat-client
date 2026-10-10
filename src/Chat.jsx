@@ -187,7 +187,7 @@ const [friendTypingMap, setFriendTypingMap] = useState({});
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
-  const sidebarWidth = sidebarOpen ? '40%' : '15%';
+  const sidebarWidth = sidebarOpen ? '40%' : '20%';
 
   return (
     <div style={s.app}>
