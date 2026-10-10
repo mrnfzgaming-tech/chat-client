@@ -480,12 +480,13 @@ function ContractIcon() {
 
 const s = {
   app: {
-    display: 'flex',
-    height: '100vh',
-    width: '100vw',
-    overflow: 'hidden',
-    fontFamily: 'system-ui, sans-serif',
-  },
+  display: 'flex',
+  height: '100dvh',
+  width: '100vw',
+  overflow: 'hidden',
+  fontFamily: 'system-ui, sans-serif',
+  position: 'relative',
+},
 
   // ====== SIDEBAR ======
   sidebar: {
