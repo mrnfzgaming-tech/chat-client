@@ -5,7 +5,9 @@ import { addFriend, getFriends, markRead, getMessages } from './api';
 
 export default function Chat({ me, token, onLogout, onOpenAdmin }) {
   const [friends, setFriends] = useState([]);
-  const [activeFriend, setActiveFriend] = useState(null);
+  const [activeFriend, setActiveFriend] = useState(
+  () => localStorage.getItem('active_friend') || null
+);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [connected, setConnected] = useState(false);
@@ -68,6 +70,13 @@ export default function Chat({ me, token, onLogout, onOpenAdmin }) {
   useEffect(() => {
     getFriends(token).then((list) => setFriends(list));
   }, [token]);
+  // Auto-restore chat on refresh
+useEffect(() => {
+  const saved = localStorage.getItem('active_friend');
+  if (saved) {
+    openChat(saved);
+  }
+}, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -83,6 +92,7 @@ export default function Chat({ me, token, onLogout, onOpenAdmin }) {
 
     try {
       setActiveFriend(friendName);
+      localStorage.setItem('active_friend', friendName);
       setFriendTyping(false);
 
       const history = await getMessages(token, friendName);
@@ -103,9 +113,10 @@ export default function Chat({ me, token, onLogout, onOpenAdmin }) {
   }
 
   function closeChat() {
-    setActiveFriend(null);
-    setMessages([]);
-  }
+  setActiveFriend(null);
+  setMessages([]);
+  localStorage.removeItem('active_friend');
+}
 
   async function handleAddFriend() {
     const name = addFriendInput.trim();
