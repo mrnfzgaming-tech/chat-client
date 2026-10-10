@@ -15,6 +15,7 @@ export default function Chat({ me, token, onLogout, onOpenAdmin }) {
   const [addFriendInput, setAddFriendInput] = useState('');
   const [addFriendMsg, setAddFriendMsg] = useState('');
   const [showExitWarning, setShowExitWarning] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 const exitWarningTimer = useRef(null);
 const backPressedRef = useRef(false);
 
@@ -220,6 +221,34 @@ useEffect(() => {
   // ============ MAIN RENDER ============
   return (
     <div style={s.app}> {/* Exit Warning Toast */}
+    {/* Logout Confirmation Dialog */}
+{showLogoutConfirm && (
+  <div style={s.modalOverlay}>
+    <div style={s.modalBox}>
+      <h3 style={s.modalTitle}>Log out?</h3>
+      <p style={s.modalText}>
+        Are you sure you want to log out of your account?
+      </p>
+      <div style={s.modalButtons}>
+        <button
+          style={s.modalCancelBtn}
+          onClick={() => setShowLogoutConfirm(false)}
+        >
+          Cancel
+        </button>
+        <button
+          style={s.modalConfirmBtn}
+          onClick={() => {
+            setShowLogoutConfirm(false);
+            onLogout();
+          }}
+        >
+          Log out
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 {showExitWarning && (
   <div style={s.exitWarning}>
     Press back again to exit
@@ -285,9 +314,12 @@ useEffect(() => {
 
           {/* Logout */}
           <div style={s.logoutBottom}>
-            <button style={s.logoutBtn} onClick={onLogout}>
-              Log out
-            </button>
+            <button
+  style={s.logoutBtn}
+  onClick={() => setShowLogoutConfirm(true)}
+>
+  Log out
+</button>
           </div>
         </div>
       ) : (
@@ -418,6 +450,64 @@ const s = {
   boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
   animation: 'fadeIn 0.2s ease',
   whiteSpace: 'nowrap',
+},
+modalOverlay: {
+  position: 'fixed',
+  inset: 0,
+  background: 'rgba(0, 0, 0, 0.6)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  zIndex: 10000,
+  padding: 20,
+  animation: 'fadeIn 0.15s ease',
+},
+modalBox: {
+  background: 'white',
+  borderRadius: 16,
+  padding: 24,
+  maxWidth: 340,
+  width: '100%',
+  boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+},
+modalTitle: {
+  margin: 0,
+  fontSize: 20,
+  fontWeight: 600,
+  color: '#1e1e2f',
+  marginBottom: 8,
+},
+modalText: {
+  margin: 0,
+  fontSize: 14,
+  color: '#666',
+  lineHeight: 1.5,
+  marginBottom: 24,
+},
+modalButtons: {
+  display: 'flex',
+  gap: 10,
+  justifyContent: 'flex-end',
+},
+modalCancelBtn: {
+  padding: '10px 20px',
+  background: 'transparent',
+  color: '#666',
+  border: '1px solid #ddd',
+  borderRadius: 8,
+  cursor: 'pointer',
+  fontSize: 14,
+  fontWeight: 500,
+},
+modalConfirmBtn: {
+  padding: '10px 20px',
+  background: '#f87171',
+  color: 'white',
+  border: 'none',
+  borderRadius: 8,
+  cursor: 'pointer',
+  fontSize: 14,
+  fontWeight: 600,
 },
 
   // ====== SIDEBAR (Full Screen) ======
