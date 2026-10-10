@@ -5,9 +5,9 @@ import { addFriend, getFriends, markRead, getMessages } from './api';
 
 export default function Chat({ me, token, onLogout, onOpenAdmin }) {
   const [friends, setFriends] = useState([]);
-  const [activeFriend, setActiveFriend] = useState(
-  () => localStorage.getItem('active_friend') || null
-);
+  const [activeFriend, setActiveFriend] = useState(() => {
+    return localStorage.getItem('active_friend') || null;
+  });
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [connected, setConnected] = useState(false);
@@ -15,6 +15,7 @@ export default function Chat({ me, token, onLogout, onOpenAdmin }) {
   const [addFriendInput, setAddFriendInput] = useState('');
   const [addFriendMsg, setAddFriendMsg] = useState('');
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const socketRef = useRef(null);
   const scrollRef = useRef(null);
@@ -70,13 +71,13 @@ export default function Chat({ me, token, onLogout, onOpenAdmin }) {
   useEffect(() => {
     getFriends(token).then((list) => setFriends(list));
   }, [token]);
-  // Auto-restore chat on refresh
-useEffect(() => {
-  const saved = localStorage.getItem('active_friend');
-  if (saved) {
-    openChat(saved);
-  }
-}, []);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('active_friend');
+    if (saved) {
+      openChat(saved);
+    }
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -94,6 +95,7 @@ useEffect(() => {
       setActiveFriend(friendName);
       localStorage.setItem('active_friend', friendName);
       setFriendTyping(false);
+      setMenuOpen(false);
 
       const history = await getMessages(token, friendName);
       const mapped = history.map((m) => ({
@@ -113,10 +115,10 @@ useEffect(() => {
   }
 
   function closeChat() {
-  setActiveFriend(null);
-  setMessages([]);
-  localStorage.removeItem('active_friend');
-}
+    setActiveFriend(null);
+    setMessages([]);
+    localStorage.removeItem('active_friend');
+  }
 
   async function handleAddFriend() {
     const name = addFriendInput.trim();
@@ -175,161 +177,238 @@ useEffect(() => {
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
-  const showSidebar = !isMobile || !activeFriend;
-  const showChat = !isMobile || activeFriend;
+  // ============ SIDEBAR CONTENT ============
+  const sidebarContent = (
+    <>
+      <div style={s.me}>
+        <div>
+          <strong>{me.username}</strong>
+          <div style={{ fontSize: 12, color: connected ? '#4ade80' : '#f87171' }}>
+            {connected ? 'Online' : 'Offline'}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {onOpenAdmin && (
+            <button style={s.adminBtn} onClick={onOpenAdmin}>Admin</button>
+          )}
+        </div>
+      </div>
+
+      <div style={s.addBox}>
+        <input
+          style={s.friendInput}
+          placeholder="Add by username"
+          value={addFriendInput}
+          onChange={(e) => setAddFriendInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleAddFriend()}
+        />
+        <button style={s.openBtn} onClick={handleAddFriend}>+</button>
+      </div>
+      {addFriendMsg && <div style={s.addMsg}>{addFriendMsg}</div>}
+
+      <div style={s.friendsLabel}>FRIENDS</div>
+      <div style={s.friendsList}>
+        {friends.length === 0 && (
+          <div style={{ color: '#666', fontSize: 13, padding: 8 }}>
+            No friends yet. Add someone above!
+          </div>
+        )}
+        {friends.map((f) => (
+          <div
+            key={f}
+            style={{
+              ...s.friendItem,
+              background: activeFriend === f ? '#2a2a44' : 'transparent',
+            }}
+            onClick={() => openChat(f)}
+          >
+            <div style={s.avatar}>{f[0].toUpperCase()}</div>
+            <span>{f}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Logout at bottom */}
+      <div style={s.logoutBottom}>
+        <button style={s.logoutBtn} onClick={onLogout}>Log out</button>
+      </div>
+    </>
+  );
 
   return (
     <div style={s.app}>
-      {showSidebar && (
-        <div style={s.sidebar}>
-          <div style={s.me}>
-            <div>
-              <strong>{me.username}</strong>
-              <div style={{ fontSize: 12, color: connected ? '#4ade80' : '#f87171' }}>
-                {connected ? 'Online' : 'Offline'}
-              </div>
-            </div>
-            {onOpenAdmin && (
-  <button style={s.adminBtn} onClick={onOpenAdmin}>Admin</button>
-)}
-            <button style={s.logout} onClick={onLogout}>Log out</button>
-          </div>
-
-          <div style={s.addBox}>
-            <input
-              style={s.friendInput}
-              placeholder="Add by username"
-              value={addFriendInput}
-              onChange={(e) => setAddFriendInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddFriend()}
-            />
-            <button style={s.openBtn} onClick={handleAddFriend}>+</button>
-          </div>
-          {addFriendMsg && <div style={s.addMsg}>{addFriendMsg}</div>}
-
-          <div style={s.friendsLabel}>FRIENDS</div>
-          <div style={s.friendsList}>
-            {friends.length === 0 && (
-              <div style={{ color: '#666', fontSize: 13, padding: 8 }}>
-                No friends yet. Add someone above!
-              </div>
-            )}
-            {friends.map((f) => (
-              <div
-                key={f}
-                style={{
-                  ...s.friendItem,
-                  background: activeFriend === f ? '#2a2a44' : 'transparent',
-                }}
-                onClick={() => openChat(f)}
-              >
-                <div style={s.avatar}>{f[0].toUpperCase()}</div>
-                <span>{f}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {showChat && (
-        <div style={s.chat}>
-          {!activeFriend ? (
-            <div style={s.empty}>
-              <h2>Welcome, {me.username}</h2>
-              <p>Add a friend on the left to start chatting</p>
-            </div>
-          ) : (
+      {/* ============ MOBILE: DRAWER OVERLAY ============ */}
+      {isMobile ? (
+        <>
+          {/* Drawer */}
+          {menuOpen && (
             <>
+              <div style={s.overlay} onClick={() => setMenuOpen(false)} />
+              <div style={s.drawer}>{sidebarContent}</div>
+            </>
+          )}
+
+          {/* Main chat area */}
+          <div style={s.chatMobile}>
+            {!activeFriend ? (
+              <div style={s.mobileTopBar}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={s.avatar}>{me.username[0].toUpperCase()}</div>
+                  <strong>{me.username}</strong>
+                </div>
+                <button style={s.menuBtn} onClick={() => setMenuOpen(true)}>
+                  ☰
+                </button>
+              </div>
+            ) : (
               <div style={s.header}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  {isMobile && (
-                    <button style={s.backBtn} onClick={closeChat}>←</button>
-                  )}
+                  <button style={s.backBtn} onClick={closeChat}>←</button>
                   <div style={s.avatar}>{activeFriend[0].toUpperCase()}</div>
                   <strong>{activeFriend}</strong>
                 </div>
-                <span style={{ fontSize: 12, color: '#666' }}>Private</span>
+                <button style={s.menuBtn} onClick={() => setMenuOpen(true)}>
+                  ☰
+                </button>
               </div>
+            )}
 
-              <div ref={scrollRef} style={s.messages}>
-                {messages.length === 0 && (
-                  <div style={{ textAlign: 'center', color: '#999', marginTop: 40 }}>
-                    No messages yet. Say hi!
-                  </div>
-                )}
-                {messages.map((m, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      textAlign: m.mine ? 'right' : 'left',
-                      margin: '6px 0',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'inline-block',
-                        padding: '8px 14px',
-                        background: m.mine ? '#667eea' : '#e5e5ea',
-                        color: m.mine ? 'white' : 'black',
-                        borderRadius: 16,
-                        maxWidth: '75%',
-                        wordWrap: 'break-word',
-                        textAlign: 'left',
-                      }}
-                    >
-                      {m.text}
-                      <div
-                        style={{
-                          fontSize: 10,
-                          marginTop: 4,
-                          opacity: 0.7,
-                          textAlign: 'right',
-                        }}
-                      >
-                        {formatTime(m.timestamp)}
-                        {m.mine && (
-                          <span style={{ marginLeft: 6 }}>
-                            {m.readAt ? '✓✓' : '✓'}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                {friendTyping && (
-                  <div style={{ textAlign: 'left', margin: '6px 0' }}>
-                    <div
-                      style={{
-                        display: 'inline-block',
-                        padding: '8px 14px',
-                        background: '#e5e5ea',
-                        borderRadius: 16,
-                        fontStyle: 'italic',
-                        color: '#666',
-                      }}
-                    >
-                      {activeFriend} is typing...
-                    </div>
-                  </div>
-                )}
+            {!activeFriend ? (
+              <div style={s.empty}>
+                <h2>Welcome, {me.username}</h2>
+                <p>Tap ☰ to open menu and pick a friend</p>
               </div>
-
-              <div style={s.inputRow}>
-                <input
-                  style={s.msgInput}
-                  value={input}
-                  onChange={handleTyping}
-                  onKeyDown={(e) => e.key === 'Enter' && send()}
-                  placeholder="Type a message..."
+            ) : (
+              <ChatBody
+                scrollRef={scrollRef}
+                messages={messages}
+                friendTyping={friendTyping}
+                activeFriend={activeFriend}
+                formatTime={formatTime}
+                input={input}
+                handleTyping={handleTyping}
+                send={send}
+              />
+            )}
+          </div>
+        </>
+      ) : (
+        /* ============ DESKTOP: SIDEBAR + CHAT ============ */
+        <>
+          <div style={s.sidebar}>{sidebarContent}</div>
+          <div style={s.chat}>
+            {!activeFriend ? (
+              <div style={s.empty}>
+                <h2>Welcome, {me.username}</h2>
+                <p>Add a friend on the left to start chatting</p>
+              </div>
+            ) : (
+              <>
+                <div style={s.header}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={s.avatar}>{activeFriend[0].toUpperCase()}</div>
+                    <strong>{activeFriend}</strong>
+                  </div>
+                  <span style={{ fontSize: 12, color: '#666' }}>Private</span>
+                </div>
+                <ChatBody
+                  scrollRef={scrollRef}
+                  messages={messages}
+                  friendTyping={friendTyping}
+                  activeFriend={activeFriend}
+                  formatTime={formatTime}
+                  input={input}
+                  handleTyping={handleTyping}
+                  send={send}
                 />
-                <button style={s.sendBtn} onClick={send}>Send</button>
-              </div>
-            </>
-          )}
-        </div>
+              </>
+            )}
+          </div>
+        </>
       )}
     </div>
+  );
+}
+
+// ============ CHAT BODY (reusable) ============
+function ChatBody({ scrollRef, messages, friendTyping, activeFriend, formatTime, input, handleTyping, send }) {
+  return (
+    <>
+      <div ref={scrollRef} style={s.messages}>
+        {messages.length === 0 && (
+          <div style={{ textAlign: 'center', color: '#999', marginTop: 40 }}>
+            No messages yet. Say hi!
+          </div>
+        )}
+        {messages.map((m, i) => (
+          <div
+            key={i}
+            style={{
+              textAlign: m.mine ? 'right' : 'left',
+              margin: '6px 0',
+            }}
+          >
+            <div
+              style={{
+                display: 'inline-block',
+                padding: '8px 14px',
+                background: m.mine ? '#667eea' : '#e5e5ea',
+                color: m.mine ? 'white' : 'black',
+                borderRadius: 16,
+                maxWidth: '75%',
+                wordWrap: 'break-word',
+                textAlign: 'left',
+              }}
+            >
+              {m.text}
+              <div
+                style={{
+                  fontSize: 10,
+                  marginTop: 4,
+                  opacity: 0.7,
+                  textAlign: 'right',
+                }}
+              >
+                {formatTime(m.timestamp)}
+                {m.mine && (
+                  <span style={{ marginLeft: 6 }}>
+                    {m.readAt ? '✓✓' : '✓'}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {friendTyping && (
+          <div style={{ textAlign: 'left', margin: '6px 0' }}>
+            <div
+              style={{
+                display: 'inline-block',
+                padding: '8px 14px',
+                background: '#e5e5ea',
+                borderRadius: 16,
+                fontStyle: 'italic',
+                color: '#666',
+              }}
+            >
+              {activeFriend} is typing...
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={s.inputRow}>
+        <input
+          style={s.msgInput}
+          value={input}
+          onChange={handleTyping}
+          onKeyDown={(e) => e.key === 'Enter' && send()}
+          placeholder="Type a message..."
+        />
+        <button style={s.sendBtn} onClick={send}>Send</button>
+      </div>
+    </>
   );
 }
 
@@ -340,7 +419,10 @@ const s = {
     width: '100vw',
     overflow: 'hidden',
     fontFamily: 'system-ui, sans-serif',
+    position: 'relative',
   },
+
+  // ====== DESKTOP SIDEBAR ======
   sidebar: {
     width: 280,
     minWidth: 280,
@@ -352,6 +434,67 @@ const s = {
     gap: 12,
     overflowY: 'auto',
   },
+
+  // ====== MOBILE DRAWER ======
+  overlay: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(0,0,0,0.5)',
+    zIndex: 99,
+  },
+  drawer: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    width: '80%',
+    maxWidth: 320,
+    background: '#1e1e2f',
+    color: 'white',
+    padding: 16,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+    overflowY: 'auto',
+    zIndex: 100,
+    boxShadow: '4px 0 20px rgba(0,0,0,0.5)',
+  },
+  chatMobile: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    background: '#f5f5f7',
+    width: '100%',
+  },
+
+  // ====== HEADER ======
+  mobileTopBar: {
+    padding: 16,
+    background: 'white',
+    borderBottom: '1px solid #e0e0e0',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  header: {
+    padding: 12,
+    background: 'white',
+    borderBottom: '1px solid #e0e0e0',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  menuBtn: {
+    background: 'transparent',
+    border: 'none',
+    fontSize: 24,
+    cursor: 'pointer',
+    color: '#667eea',
+    padding: '4px 12px',
+  },
+
+  // ====== USER INFO ======
   me: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -359,25 +502,17 @@ const s = {
     paddingBottom: 12,
     borderBottom: '1px solid #333',
   },
-  logout: {
+  adminBtn: {
     background: 'transparent',
-    color: '#f87171',
-    border: '1px solid #f87171',
+    color: '#4ade80',
+    border: '1px solid #4ade80',
     padding: '4px 10px',
     borderRadius: 6,
     cursor: 'pointer',
     fontSize: 12,
   },
-adminBtn: {
-  background: 'transparent',
-  color: '#4ade80',
-  border: '1px solid #4ade80',
-  padding: '4px 10px',
-  borderRadius: 6,
-  cursor: 'pointer',
-  fontSize: 12,
-  marginRight: 6,
-},
+
+  // ====== ADD FRIEND ======
   addBox: { display: 'flex', gap: 6 },
   friendInput: {
     flex: 1,
@@ -397,13 +532,20 @@ adminBtn: {
     fontWeight: 'bold',
   },
   addMsg: { fontSize: 12, color: '#aaa' },
+
+  // ====== FRIENDS LIST ======
   friendsLabel: { fontSize: 11, color: '#666', marginTop: 8, letterSpacing: 1 },
-  friendsList: { display: 'flex', flexDirection: 'column', gap: 2 },
+  friendsList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+    flex: 1,
+  },
   friendItem: {
     display: 'flex',
     alignItems: 'center',
     gap: 10,
-    padding: 8,
+    padding: 10,
     borderRadius: 6,
     cursor: 'pointer',
   },
@@ -420,15 +562,25 @@ adminBtn: {
     color: 'white',
     fontSize: 14,
   },
-  backBtn: {
-    background: 'transparent',
-    border: 'none',
-    fontSize: 22,
-    cursor: 'pointer',
-    color: '#667eea',
-    padding: 0,
-    marginRight: 4,
+
+  // ====== LOGOUT AT BOTTOM ======
+  logoutBottom: {
+    marginTop: 'auto',
+    paddingTop: 12,
+    borderTop: '1px solid #333',
   },
+  logoutBtn: {
+    width: '100%',
+    padding: '10px',
+    background: 'transparent',
+    color: '#f87171',
+    border: '1px solid #f87171',
+    borderRadius: 6,
+    cursor: 'pointer',
+    fontSize: 14,
+  },
+
+  // ====== CHAT AREA ======
   chat: {
     flex: 1,
     display: 'flex',
@@ -436,6 +588,14 @@ adminBtn: {
     background: '#f5f5f7',
     minWidth: 0,
     overflow: 'hidden',
+  },
+  backBtn: {
+    background: 'transparent',
+    border: 'none',
+    fontSize: 22,
+    cursor: 'pointer',
+    color: '#667eea',
+    padding: 0,
   },
   empty: {
     flex: 1,
@@ -446,15 +606,6 @@ adminBtn: {
     color: '#666',
     textAlign: 'center',
     padding: 20,
-  },
-  header: {
-    padding: 16,
-    background: 'white',
-    borderBottom: '1px solid #e0e0e0',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    flexShrink: 0,
   },
   messages: {
     flex: 1,
