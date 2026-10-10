@@ -1,15 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { API_URL } from './config';
-import { encryptMessage, decryptMessage } from './crypto';
-import { addFriend, getFriends, markRead, getMessages, getPublicKey } from './api';
+import { addFriend, getFriends, markRead, getMessages } from './api';
 
-export default function Chat({ me, keys, token, onLogout }) {
+export default function Chat({ me, token, onLogout }) {
   const [friends, setFriends] = useState([]);
   const [activeFriend, setActiveFriend] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
-  const [friendPubKey, setFriendPubKey] = useState('');
   const [connected, setConnected] = useState(false);
   const [friendTyping, setFriendTyping] = useState(false);
   const [addFriendInput, setAddFriendInput] = useState('');
@@ -20,10 +18,8 @@ export default function Chat({ me, keys, token, onLogout }) {
   const typingTimeoutRef = useRef(null);
   const activeFriendRef = useRef(null);
 
-  // keep ref updated so socket callbacks always see current friend
   useEffect(() => { activeFriendRef.current = activeFriend; }, [activeFriend]);
 
-  // --- Connect socket ---
   useEffect(() => {
     const socket = io(API_URL, { auth: { token } });
     socketRef.current = socket;
@@ -31,23 +27,16 @@ export default function Chat({ me, keys, token, onLogout }) {
     socket.on('connect', () => setConnected(true));
     socket.on('disconnect', () => setConnected(false));
 
-    socket.on('new_message', async (msg) => {
-      const pk = await getPublicKey(msg.from);
-      const text = decryptMessage(msg.ciphertext, msg.nonce, pk, keys.privateKey);
-
-      // Only append if we're chatting with this sender
+    socket.on('new_message', (msg) => {
       if (activeFriendRef.current === msg.from) {
-        setMessages((m) => [...m, { ...msg, text, mine: false, readAt: null }]);
-        // Mark as read immediately
+        setMessages((m) => [...m, { ...msg, mine: false, readAt: null }]);
         socket.emit('mark_read', { from: msg.from });
         markRead(token, msg.from);
       }
     });
 
     socket.on('friend_typing', ({ from, isTyping }) => {
-      if (activeFriendRef.current === from) {
-        setFriendTyping(isTyping);
-      }
+      if (activeFriendRef.current === from) setFriendTyping(isTyping);
     });
 
     socket.on('messages_read', ({ by }) => {
@@ -59,36 +48,25 @@ export default function Chat({ me, keys, token, onLogout }) {
     });
 
     return () => socket.disconnect();
-  }, [token, keys.privateKey]);
+  }, [token]);
 
-  // --- Load friends on start ---
   useEffect(() => {
     getFriends(token).then(setFriends);
   }, [token]);
 
-  // --- Auto-scroll ---
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, friendTyping]);
 
-  // --- Open chat with a friend ---
   async function openChat(friendName) {
     if (!friendName || friendName === me.username) return;
     try {
-      const pk = await getPublicKey(friendName);
-      setFriendPubKey(pk);
       setActiveFriend(friendName);
       setFriendTyping(false);
 
       const history = await getMessages(token, friendName);
-      const decrypted = history.map((m) => ({
-        ...m,
-        mine: m.from === me.username,
-        text: decryptMessage(m.ciphertext, m.nonce, pk, keys.privateKey)
-      }));
-      setMessages(decrypted);
+      setMessages(history.map((m) => ({ ...m, mine: m.from === me.username })));
 
-      // mark all as read
       markRead(token, friendName);
       socketRef.current?.emit('mark_read', { from: friendName });
     } catch (e) {
@@ -96,7 +74,6 @@ export default function Chat({ me, keys, token, onLogout }) {
     }
   }
 
-  // --- Add a new friend ---
   async function handleAddFriend() {
     const name = addFriendInput.trim();
     if (!name) return;
@@ -109,32 +86,24 @@ export default function Chat({ me, keys, token, onLogout }) {
       setAddFriendInput('');
       const updated = await getFriends(token);
       setFriends(updated);
-      // open chat with the new friend
       openChat(name);
     }
     setTimeout(() => setAddFriendMsg(''), 3000);
   }
 
-  // --- Send message ---
   function send() {
-    if (!input.trim() || !activeFriend || !friendPubKey) return;
-    const { ciphertext, nonce } = encryptMessage(input, friendPubKey, keys.privateKey);
+    if (!input.trim() || !activeFriend) return;
 
-    socketRef.current.emit('send_message', {
-      to: activeFriend, ciphertext, nonce
-    });
+    socketRef.current.emit('send_message', { to: activeFriend, text: input });
 
     setMessages((m) => [...m, {
       from: me.username, to: activeFriend, text: input, mine: true,
       timestamp: new Date(), readAt: null
     }]);
     setInput('');
-
-    // stop typing indicator
     socketRef.current.emit('typing', { to: activeFriend, isTyping: false });
   }
 
-  // --- Typing indicator ---
   function handleTyping(e) {
     setInput(e.target.value);
     if (!activeFriend) return;
@@ -147,7 +116,6 @@ export default function Chat({ me, keys, token, onLogout }) {
     }, 1500);
   }
 
-  // --- Format time ---
   function formatTime(ts) {
     const d = new Date(ts);
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -155,7 +123,6 @@ export default function Chat({ me, keys, token, onLogout }) {
 
   return (
     <div style={s.app}>
-      {/* ===== Sidebar ===== */}
       <div style={s.sidebar}>
         <div style={s.me}>
           <div>
@@ -167,7 +134,6 @@ export default function Chat({ me, keys, token, onLogout }) {
           <button style={s.logout} onClick={onLogout}>Log out</button>
         </div>
 
-        {/* Add friend */}
         <div style={s.addBox}>
           <input
             style={s.friendInput}
@@ -178,6 +144,7 @@ export default function Chat({ me, keys, token, onLogout }) {
           />
           <button style={s.openBtn} onClick={handleAddFriend}>+</button>
         </div>
+        
         {addFriendMsg && <div style={s.addMsg}>{addFriendMsg}</div>}
 
         {/* Friends list */}
@@ -204,7 +171,6 @@ export default function Chat({ me, keys, token, onLogout }) {
         </div>
       </div>
 
-      {/* ===== Chat area ===== */}
       <div style={s.chat}>
         {!activeFriend ? (
           <div style={s.empty}>
@@ -218,7 +184,7 @@ export default function Chat({ me, keys, token, onLogout }) {
                 <div style={s.avatar}>{activeFriend[0].toUpperCase()}</div>
                 <strong>{activeFriend}</strong>
               </div>
-              <span style={{ fontSize: 12, color: '#666' }}>🔒 End-to-end encrypted</span>
+              <span style={{ fontSize: 12, color: '#666' }}>🔒 Private</span>
             </div>
 
             <div ref={scrollRef} style={s.messages}>
@@ -230,22 +196,14 @@ export default function Chat({ me, keys, token, onLogout }) {
               {messages.map((m, i) => (
                 <div key={i} style={{ textAlign: m.mine ? 'right' : 'left', margin: '6px 0' }}>
                   <div style={{
-                    display: 'inline-block',
-                    padding: '8px 14px',
+                    display: 'inline-block', padding: '8px 14px',
                     background: m.mine ? '#667eea' : '#e5e5ea',
                     color: m.mine ? 'white' : 'black',
-                    borderRadius: 16,
-                    maxWidth: '70%',
-                    wordWrap: 'break-word',
-                    textAlign: 'left'
+                    borderRadius: 16, maxWidth: '70%',
+                    wordWrap: 'break-word', textAlign: 'left'
                   }}>
                     {m.text}
-                    <div style={{
-                      fontSize: 10,
-                      marginTop: 4,
-                      opacity: 0.7,
-                      textAlign: 'right'
-                    }}>
+                    <div style={{ fontSize: 10, marginTop: 4, opacity: 0.7, textAlign: 'right' }}>
                       {formatTime(m.timestamp)}
                       {m.mine && (
                         <span style={{ marginLeft: 6 }}>
@@ -260,12 +218,9 @@ export default function Chat({ me, keys, token, onLogout }) {
               {friendTyping && (
                 <div style={{ textAlign: 'left', margin: '6px 0' }}>
                   <div style={{
-                    display: 'inline-block',
-                    padding: '8px 14px',
-                    background: '#e5e5ea',
-                    borderRadius: 16,
-                    fontStyle: 'italic',
-                    color: '#666'
+                    display: 'inline-block', padding: '8px 14px',
+                    background: '#e5e5ea', borderRadius: 16,
+                    fontStyle: 'italic', color: '#666'
                   }}>
                     {activeFriend} is typing...
                   </div>
